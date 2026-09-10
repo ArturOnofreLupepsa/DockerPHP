@@ -1,63 +1,131 @@
-Aplicação web simples de CRUD (Create, Read, Update, Delete) para gerenciar tarefas, 
-desenvolvida em PHP com banco de dados MySQL, com todo o ambiente orquestrado via Docker Compose.
+# CRUD de Tarefas com PHP, MySQL e Docker
 
-Cada tarefa possui os campos:
+Aplicação web simples para cadastrar, listar e excluir tarefas. O ambiente é executado com Docker Compose: um container Apache/PHP e um container MySQL.
 
-id (chave primária, auto incremento)
-nome (varchar)
-descricao (texto)
-data_cadastro (datetime, preenchido automaticamente na criação)
+## Funcionalidades disponíveis
 
-A aplicação permite listar, cadastrar, editar e excluir tarefas.
+- Cadastrar uma tarefa com nome e descrição opcional;
+- Listar as tarefas, da mais recente para a mais antiga;
+- Excluir uma tarefa;
+- Criar automaticamente a tabela `tarefas` ao acessar a aplicação.
 
-Pré-requisitos
-Docker instalado
-Docker Compose (já incluso no Docker Desktop / docker compose no Linux)
+> O projeto possui um link de **Editar** na listagem, mas o arquivo `edit.php` ainda não existe. Portanto, a edição não está disponível na versão atual.
 
-Não é necessário ter PHP ou MySQL instalados localmente — tudo roda dentro dos containers.
+## Pré-requisitos
 
-Como executar o projeto
-Clone o repositório:
-bash
-   git clone <URL_DO_REPOSITORIO>
-   cd ProjetoPHPDocker
-Suba os containers:
-bash
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) instalado e em execução;
+- Git, apenas para clonar o repositório.
+
+Não é necessário instalar PHP, Apache ou MySQL na máquina.
+
+## Como executar
+
+1. Clone o repositório e entre na pasta criada:
+
+   ```bash
+   git clone https://github.com/ArturOnofreLupepsa/DockerPHP.git
+   cd DockerPHP
+   ```
+
+2. Construa a imagem da aplicação e inicie os containers em segundo plano:
+
+   ```bash
    docker compose up -d --build
+   ```
 
-O --build é necessário porque o serviço app usa um Dockerfile próprio (baseado na imagem oficial php:8.4-apache) para instalar a extensão pdo_mysql, exigida para a conexão PHP → MySQL via PDO.
+3. Confira se os serviços estão em execução:
 
-Criação da tabela: não é preciso rodar nenhum script SQL manual. O arquivo src/db.php executa um CREATE TABLE IF NOT EXISTS tarefas (...) toda vez que a aplicação é carregada, então a tabela é criada automaticamente assim que a aplicação é acessada pela primeira vez.
-Acesse a aplicação em http://localhost:8080.
-Para parar os containers sem perder os dados do banco:
-bash
-   docker compose down
+   ```bash
+   docker compose ps
+   ```
 
-(os dados ficam salvos no volume DockerPHP e continuam lá na próxima vez que você subir os containers)
+4. Aguarde o MySQL terminar sua inicialização. Na primeira execução isso pode levar alguns segundos. Caso a página mostre falha de conexão, aguarde e atualize-a. Para acompanhar os logs, use:
 
-Explicação do docker-compose.yml
+   ```bash
+   docker compose logs -f db
+   ```
 
-O arquivo orquestra dois serviços:
+   Use `Ctrl+C` para parar apenas a visualização dos logs.
 
-app: container da aplicação PHP. É construído a partir de um Dockerfile local (baseado na imagem oficial php:8.4-apache), que instala a extensão pdo_mysql. Expõe a porta 8080 do host para a porta 80 do container (Apache) e monta a pasta ./src como raiz do servidor web, permitindo editar o código sem reconstruir a imagem.
-db: container do banco de dados, usando a imagem oficial mysql:8.0. Cria automaticamente o banco planner na primeira inicialização e persiste os dados no volume nomeado DockerPHP.
+5. Abra a aplicação no navegador:
 
-Variáveis de ambiente (definidas diretamente no docker-compose.yml, sem uso de arquivo .env, conforme exigido):
+   ```text
+   http://localhost:8080
+   ```
 
-DB_HOST: nome do serviço do banco (db), resolvido pela rede interna
-DB_USER / DB_PASSWORD: credenciais de acesso ao MySQL
-DB_NAME: nome do banco de dados usado pela aplicação
+Ao abrir a página, o arquivo `src/db.php` conecta-se ao banco `planner` e executa a criação da tabela `tarefas` caso ela ainda não exista.
 
-Rede: foi criada uma rede personalizada do tipo bridge (planner_rede), à qual ambos os serviços estão conectados. Isso permite que o container app se conecte ao container db usando apenas o nome do serviço (db) como host, sem precisar saber o IP interno do container.
+## Encerrar e reiniciar
 
-Volume: o volume nomeado DockerPHP é montado em /var/lib/mysql dentro do container db, garantindo que os dados do banco não sejam perdidos ao reiniciar ou recriar os containers.
+Para parar e remover os containers, mantendo os dados do banco:
 
-Pontos interessantes observados pela dupla
-A imagem oficial php:8.4-apache não vem com a extensão pdo_mysql habilitada por padrão; foi necessário criar um Dockerfile próprio, ainda partindo da imagem oficial do Docker Hub, apenas adicionando essa extensão com docker-php-ext-install.
-Usar variáveis de ambiente diretamente no docker-compose.yml facilita trocar configurações de conexão (usuário, senha, nome do banco) sem precisar alterar o código PHP.
-Configurar um volume nomeado para o MySQL garante que os dados cadastrados sobrevivem a um docker compose down/up, evitando perda de informação ao reiniciar o ambiente.
-Criar uma rede bridge isolada para os dois serviços permite que eles se comuniquem pelo nome do container/serviço, sem expor o banco de dados diretamente na rede do host.
-Autores
-Artur Vinicius;
-Bruno Januário;
-Lucas Dantas;
+```bash
+docker compose down
+```
+
+Para iniciar novamente depois:
+
+```bash
+docker compose up -d
+```
+
+Os dados são preservados no volume nomeado `DockerPHP`.
+
+### Apagar todos os dados (opcional)
+
+O comando abaixo remove também o volume do MySQL e, por isso, apaga permanentemente todas as tarefas:
+
+```bash
+docker compose down -v
+```
+
+Depois, execute `docker compose up -d --build` para criar um ambiente novo.
+
+## Estrutura do projeto
+
+```text
+.
+├── Dockerfile
+├── docker-compose.yml
+└── src/
+    ├── db.php       # Conexão PDO e criação da tabela
+    ├── index.php    # Listagem das tarefas
+    ├── create.php   # Cadastro de tarefas
+    └── delete.php   # Exclusão de tarefas
+```
+
+## Serviços Docker
+
+| Serviço | Tecnologia | Função |
+| --- | --- | --- |
+| `app` | PHP 8.4 com Apache | Executa a aplicação e a expõe em `http://localhost:8080`. |
+| `db` | MySQL 8.0 | Armazena o banco `planner` e as tarefas. |
+
+Os dois serviços usam a rede bridge `planner_rede`. Por isso, a aplicação usa `db` como host do banco, sem depender de IP fixo.
+
+O código em `./src` é montado em `/var/www/html` no container `app`; alterações nos arquivos PHP locais são refletidas sem reconstruir a imagem.
+
+## Configuração do banco
+
+As variáveis são definidas diretamente em `docker-compose.yml`:
+
+| Variável | Valor | Uso |
+| --- | --- | --- |
+| `DB_HOST` | `db` | Host do MySQL na rede Docker. |
+| `DB_USER` | `root` | Usuário de conexão. |
+| `DB_PASSWORD` | `root` | Senha de conexão. |
+| `DB_NAME` | `planner` | Banco utilizado pela aplicação. |
+
+Para uso local/educacional, as credenciais ficam no Compose. Em produção, use segredos e não exponha senhas no repositório.
+
+## Solução de problemas
+
+- **A porta 8080 está ocupada:** altere o mapeamento `8080:80` no `docker-compose.yml`, por exemplo para `8081:80`, e acesse a nova porta.
+- **Erro de conexão com o banco:** execute `docker compose ps` e `docker compose logs db`; aguarde o MySQL ficar pronto e atualize a página.
+- **Reconstruir a imagem PHP:** use `docker compose up -d --build` após alterar o `Dockerfile`.
+
+## Autores
+
+- Artur Vinicius
+- Bruno Januário
+- Lucas Dantas
