@@ -1,0 +1,37 @@
+
+
+services: # Início da lista de serviços (containers) do projeto
+  app: # Serviço responsável por rodar a aplicação PHP
+    build: .   # Constrói a imagem a partir do Dockerfile local (pasta atual)
+
+     # que parte da imagem oficial php:8.4-apache e instala a
+     # extensão pdo_mysql, necessária para conectar ao MySQL via PDO
+
+    container_name: ProjetoPHP  # Nome fixo do container, facilita identificar no "docker ps"
+    ports:  # Mapeamento de portas: host:container
+      -  "8080:80"  # Porta 80 do container (Apache) exposta na porta 8080 da máquina
+    environment: # Variáveis de ambiente usadas pelo código PHP (db.php)
+      DB_HOST: db # Nome do serviço do banco de dados; o Docker resolve isso / automaticamente pela rede interna (planner_rede)               
+      DB_USER: root # Usuário do MySQL usado na conexão
+      DB_PASSWORD: root # Senha do usuário root do MySQL
+      DB_NAME: planner  # Nome do banco de dados que a aplicação vai usar
+    volumes: # Compartilhamento de arquivos entre host e container
+      -  ./src:/var/www/html  # Mapeia a pasta local "src" para a raiz do Apache no container, assim qualquer alteração no código PHP é refletida na hora
+    networks:  #Redes às quais este serviço está conectado
+      -  planner_rede  # Conecta o app à rede personalizada, permitindo comunicação com o db
+  db: # Serviço responsável por rodar o banco de dados
+    image: mysql:8.0  # Usa a imagem oficial do MySQL, versão 8.0, direto do Docker Hub
+    container_name: trabalhorPHP # Nome fixo do container do banco de dados
+    environment:  # Variáveis de ambiente usadas pela imagem oficial do MySQL
+      MYSQL_ROOT_PASSWORD: root # Define a senha do usuário root do MySQL
+      MYSQL_DATABASE: planner # Faz o MySQL criar automaticamente o banco "planner" / na primeira inicialização do container
+    volumes: # Volume usado para persistir os dados do banco
+      -  DockerPHP:/var/lib/mysql  # Associa o volume nomeado "DockerPHP" à pasta interna onde o MySQL guarda os dados, evitando perda ao reiniciar
+                                   
+    networks:                     # Redes às quais este serviço está conectado
+        -    planner_rede  # Conecta o db à mesma rede do app, permitindo que se enxerguem
+networks:   # Declaração das redes personalizadas do projeto
+  planner_rede:   # Nome da rede usada pelos dois serviços
+    driver: bridge # Tipo de rede "bridge": rede interna isolada, própria do Docker,  que permite que os containers se comuniquem pelo nome do serviço
+volumes:  # Declaração dos volumes nomeados do projeto
+    DockerPHP:  # Volume persistente que guarda os dados do MySQL entre reinícios
